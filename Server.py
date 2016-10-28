@@ -1,34 +1,39 @@
 import socket
-import threading
+from threading import Thread
 import tkinter as tk
 from tkinter import ttk
 
 LARGE_FONT = ("Verdana", 12)
 MEDIUM_FONT = ("Verdana", 10)
-IP = None
-PORT = None
 
 
 class ClientApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        container = tk.Frame(self)
+        self.container = tk.Frame(self)
 
-        container.pack(side="top", fill="both", expand=True)
+        self.container.pack(side="top", fill="both", expand=True)
 
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
 
-        for F in (StartPage, Server):
-            frame = F(container, self)
-            self.frames[F] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+        frame = StartPage(self.container, self)
+        self.frames[StartPage] = frame
+        frame.grid(row=0, column=0, sticky="nsew")
 
         self.show_frame(StartPage)
 
     def show_frame(self, cont):
+        frame = self.frames[cont]
+        frame.tkraise()
+
+    def show_server_frame(self, cont, ip, port):
+        frame = Server(self.container, self, ip, port)
+        self.frames[Server] = frame
+        frame.grid(row=0, column=0, sticky="nsew")
+
         frame = self.frames[cont]
         frame.tkraise()
 
@@ -50,32 +55,41 @@ class StartPage(tk.Frame):
         button1.pack()
 
     def start_server(self, server_address):
-        global IP, PORT
-        IP, PORT = server_address.split(':')
+        ip, port = server_address.split(':')
 
-        self.controller.show_frame(Server)
+        self.controller.show_server_frame(Server, ip, port)
 
 
 class Server(tk.Frame):
-    def __init__(self, parent, controller):
-        global IP, PORT
+    def __init__(self, parent, controller, ip, port):
+        self.ip = ip
+        self.port = port
         self.controller = controller
         self.s = socket.socket()
         tk.Frame.__init__(self, parent)
-        # self.start_server()
-        label = tk.Label(self, text="Server started at" + str(IP) + ":" + str(PORT), font=LARGE_FONT)
+
+        server = Thread(target=self.start_server)
+        server.start()
+
+        label = tk.Label(self, text="Server started at " + ip + ":" + port, font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
         button1 = ttk.Button(self, text="Close server", command=lambda: self.close_server())
         button1.pack()
 
     def start_server(self):
-        self.s.bind((IP, int(PORT)))
+        self.s.bind((self.ip, int(self.port)))
         self.s.listen(1)
 
         try:
             fd, addr = self.s.accept()
-            print("Connection was accepted")
+            accept_label = ttk.Label(self, text="First client connected", font=MEDIUM_FONT)
+            accept_label.pack()
+
+            fd2, addr2 = self.s.accept()
+            accept_labe2 = ttk.Label(self, text="Second client connected", font=MEDIUM_FONT)
+            accept_labe2.pack()
+
         except socket.error as error:
             print(error)
 
