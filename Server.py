@@ -5,8 +5,6 @@ from tkinter import ttk
 
 LARGE_FONT = ("Verdana", 12)
 MEDIUM_FONT = ("Verdana", 10)
-IP = None
-PORT = None
 
 
 class ClientApp(tk.Tk):
@@ -21,10 +19,13 @@ class ClientApp(tk.Tk):
 
         self.frames = {}
 
-        for F in (StartPage, Server):
-            frame = F(container, self)
-            self.frames[F] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+        frame = StartPage(container, self)
+        self.frames[StartPage] = frame
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        frame = Server(container, self, 'test', 'test')
+        self.frames[Server] = frame
+        frame.grid(row=0, column=0, sticky="nsew")
 
         self.show_frame(StartPage)
 
@@ -50,27 +51,27 @@ class StartPage(tk.Frame):
         button1.pack()
 
     def start_server(self, server_address):
-        global IP, PORT
-        IP, PORT = server_address.split(':')
+        ip, port = server_address.split(':')
 
         self.controller.show_frame(Server)
 
 
 class Server(tk.Frame):
-    def __init__(self, parent, controller):
-        global IP, PORT
+    def __init__(self, parent, controller, ip, port):
+        self.ip = ip
+        self.port = port
         self.controller = controller
         self.s = socket.socket()
         tk.Frame.__init__(self, parent)
         # self.start_server()
-        label = tk.Label(self, text="Server started at" + str(IP) + ":" + str(PORT), font=LARGE_FONT)
+        label = tk.Label(self, text="Server started at " + ip + ":" + port, font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
         button1 = ttk.Button(self, text="Close server", command=lambda: self.close_server())
         button1.pack()
 
     def start_server(self):
-        self.s.bind((IP, int(PORT)))
+        self.s.bind((self.ip, self.port))
         self.s.listen(1)
 
         try:
