@@ -67,7 +67,7 @@ class Game(tk.Frame):
         self.controller = controller
         self.s = socket.socket()
         tk.Frame.__init__(self, parent)
-        
+
         if self.connect_client():
             label = tk.Label(self, text="Connected to server ", font=LARGE_FONT)
             label.pack(pady=10, padx=10)
@@ -78,12 +78,12 @@ class Game(tk.Frame):
     def connect_client(self):
         try:
             self.s.connect((self.ip, int(self.port)))
-            self.controller.show_user_frame(Game)
             return True
         except socket.error as error:
             error_label = tk.Label(self, text=error, font=MEDIUM_FONT, fg="red")
             error_label.pack()
             return False
+
 
 app = ClientApp()
 
