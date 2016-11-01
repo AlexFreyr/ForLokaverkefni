@@ -1,6 +1,9 @@
 import socket
+import json
 import tkinter as tk
+import time
 from tkinter import ttk
+from threading import Thread
 
 LARGE_FONT = ("Verdana", 12)
 MEDIUM_FONT = ("Verdana", 10)
@@ -65,15 +68,74 @@ class Game(tk.Frame):
         self.ip = ip
         self.port = port
         self.controller = controller
-        self.s = socket.socket()
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.questions = []
+        self.question = None
+        self.answer1, self.answer2, self.answer3, self.answer4 = None, None, None, None
+        self.counter = 0
         tk.Frame.__init__(self, parent)
 
         if self.connect_client():
-            label = tk.Label(self, text="Connected to server ", font=LARGE_FONT)
-            label.pack(pady=10, padx=10)
+            self.label = tk.Label(self, text="Connected to server ", font=LARGE_FONT)
+            self.label.pack(pady=10, padx=10)
 
-        button1 = ttk.Button(self, text="Back to home", command=lambda: controller.show_frame(StartPage))
-        button1.pack()
+            wait = Thread(target=self.wait_for_start_signal)  # Wait for the game to start
+            wait.start()  # Start a new thread that waits for the game to start
+
+        self.button1 = ttk.Button(self, text="Back to home", command=lambda: controller.show_frame(StartPage))
+        self.button1.pack()
+
+    def wait_for_start_signal(self):
+        data = None
+        while data != "start":
+            data = self.s.recv(1024).decode('utf-8')
+            if not data:
+                break
+        self.init_game()
+
+    def init_game(self):
+        self.label.destroy()
+        self.button1.destroy()
+
+        question_data = self.s.recv(8192).decode('utf-8')  # Hopefully this will return a list
+        question_data = json.loads(question_data)  # De-serialize the list
+        self.questions = question_data
+        Thread(target=self.game_display).start()
+
+        while True:
+            pass
+
+    def game_display(self):
+
+        self.question = tk.Label(self, text=self.questions[self.counter][0][0], font=LARGE_FONT)
+
+        self.answer1 = ttk.Button(self, text=self.questions[self.counter][1][0],
+                                command=lambda: self.answer_question(0))
+        self.answer2 = ttk.Button(self, text=self.questions[self.counter][1][1],
+                                command=lambda: self.answer_question(1))
+        self.answer3 = ttk.Button(self, text=self.questions[self.counter][1][2],
+                                command=lambda: self.answer_question(2))
+        self.answer4 = ttk.Button(self, text=self.questions[self.counter][1][3],
+                                command=lambda: self.answer_question(3))
+
+        self.question.pack()
+        self.answer1.pack()
+        self.answer2.pack()
+        self.answer3.pack()
+        self.answer4.pack()
+
+    def answer_question(self, btn_nr):
+        answer = self.questions[self.counter][2][0]
+        self.counter += 1
+        if answer == btn_nr:
+            #  Increase player score
+            self.question.destroy()
+            self.answer1.destroy()
+            self.answer2.destroy()
+            self.answer3.destroy()
+            self.answer4.destroy()
+            self.game_display()
+
 
     def connect_client(self):
         try:
