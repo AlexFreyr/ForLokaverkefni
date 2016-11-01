@@ -1,6 +1,8 @@
-import socket
-from threading import Thread
 import tkinter as tk
+import json
+import socket
+import random
+from threading import Thread
 from tkinter import ttk
 
 LARGE_FONT = ("Verdana", 12)
@@ -65,42 +67,99 @@ class Server(tk.Frame):
         self.ip = ip
         self.port = port
         self.controller = controller
-        self.s = socket.socket()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.questions_generated = []  # Questions will be stored in this list
+        self.clients = []  # Client connection will be stored in this list
+
         tk.Frame.__init__(self, parent)
 
         server = Thread(target=self.start_server)
-        server.start()
+        server.start() # Server starts on new thread
 
         label = tk.Label(self, text="Server started at " + ip + ":" + port, font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
-        button1 = ttk.Button(self, text="Close server", command=lambda: self.close_server())
+        button1 = ttk.Button(self, text="Close server", command=self.close_server)
         button1.pack()
 
     def start_server(self):
-        self.s.bind((self.ip, int(self.port)))
-        self.s.listen(1)
+        self.sock.bind((self.ip, int(self.port)))
+        self.sock.listen(1)
 
         try:
-            fd, addr = self.s.accept()
-            accept_label = ttk.Label(self, text="First client connected", font=MEDIUM_FONT)
-            accept_label.pack()
+            conn1, addr1 = self.sock.accept()
+            accept_label1 = ttk.Label(self, text="First client connected", font=MEDIUM_FONT)
+            accept_label1.pack()
+            client1 = Thread(target=self.client_handler, args=(conn1, addr1, ))
+            client1.start() # First client is set on a new thread
+            self.clients.append([conn1, addr1])
 
-            fd2, addr2 = self.s.accept()
-            accept_labe2 = ttk.Label(self, text="Second client connected", font=MEDIUM_FONT)
-            accept_labe2.pack()
+            conn2, addr2 = self.sock.accept()
+            accept_label2 = ttk.Label(self, text="Both clients are connected", font=MEDIUM_FONT)
+            accept_label2.pack()
+            client2 = Thread(target=self.client_handler, args=(conn2, addr2, ))
+            client2.start() # Second client is set on a new thread
+            self.clients.append([conn2, addr2])
+
+            accept_label1.destroy()
+
+            for x in self.clients:
+                x[0].send("start".encode('utf-8'))  # Send both clients to start the game
+
+            self.game_controller()  # Generate the questions that game will use
+
+            questions = json.dumps(self.questions_generated)  # Serialize the list
+            for x in self.clients:
+                x[0].send(questions.encode('utf-8'))  # Send both clients the questions
 
         except socket.error as error:
             print(error)
 
+    def game_controller(self):
+        questions = [["ISP stands for"], ["International Service Provider", "Internet Service Provider", "Internet Service Presenter", "None of the above"], [1]], \
+                    [["WWW stands for"], ["World Worm Web", "World Wide Web", "World Word Web", "None of the above"], [1]], \
+                    [["A Bit stands for"], ["Binary Digit", "Binary Data", "Binary Deci", "None of the above"], [0]], \
+                    [["Collection of 1024 bytes"], ["1MB", "1KB", "1TB", "1GB"], [1]], \
+                    [["Which of the following is a storage device?"], ["Hard Disk", "Floppy Disk", "USB Disk", "All of the above"], [3]], \
+                    [["If the B in a BST stands for Binary, what does the S stand for?"], ["Super", "Storage", "Search", "Sign"], [2]], \
+                    [["In C++, what punctuation marks are used to bound the beginning & end of code blocks?"], ["{ & }", "% & %", "( & )", "None of the above"], [1]], \
+                    [["The IEEE 802.3 standard is often referred to by which term?"], ["Internet", "Computer", "Ethernet", "Cable"], [2]], \
+                    [["Files with .py extensions are associated with what programming language?"], ["Perl", "Python", "C++", "PHP"], [1]], \
+                    [["In the abbreviation 'USB' what does the 'B' stand for"], ["Bycycle", "Buffer", "Bus", "Bug"], [1]], \
+                    [["Red Hat, Ubuntu, Debian etc. are distributions of which Operating System"], ["Linux", "AIX", "Symbian", "OS X"], [0]], \
+                    [["What does an SSL certificate do?"], ["Tracks your web travels", "Validates website authenticity", "Tells website about you", "Blocks spam from webpages"], [1]], \
+                    [["Which US Defense project is considered the precursor to the Internet"], ["Fibrenet", "ARPANET", "InNet", "Intranet"], [1]], \
+                    [["In C, what is the index of the first element of any array"], ["10", "-1", "1", "0"], [3]], \
+                    [["Which of these is a statement from SQL"], ["GREP", "SELECT", "PIPE", "COMPILE"], [1]], \
+                    [["Which is an example of infix notation?"], ["S + 3 4 =", "S = + 2 2", "S = 3 + 3", "S = 5 6 +"], [2]], \
+                    [["Which of these is a term associated with TCP/IP?"], ["Clip", "Nail", "Envelope", "Packet"], [3]]
+
+        question_len = len(questions)
+        random_numbers = random.sample(range(0, question_len - 1), 10)
+
+        for x in range(0, 10):
+            self.questions_generated.append(questions[x])
+
+    def client_handler(self, conn, addr):  # This handles all of the clients
+        question_counter = 0
+        score = 0
+        self.game_controller()
+
+        while True:
+            data = conn.recv(1024).decode('utf-8')  # Waiting for the client to do something
+            if not data:
+                break
+
+            question_counter += 1
+
     def close_server(self):
-        self.s.close()
+        self.sock.close()
         self.controller.show_frame(StartPage)
 
 
 app = ClientApp()
 
-app.title("Guessing game")
+app.title("Guessing game server")
 app_width, app_height = 720, 240
 screen_width, screen_height = app.winfo_screenwidth(), app.winfo_screenheight()
 start_width, start_height = (screen_width / 2) - (app_width / 2), (screen_height / 2) - (app_height / 2)
