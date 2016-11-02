@@ -138,19 +138,23 @@ class Server(tk.Frame):
         random_numbers = random.sample(range(0, question_len - 1), 10)
 
         for x in range(0, 10):
-            self.questions_generated.append(questions[x])
+            self.questions_generated.append(questions[random_numbers[x]])
 
     def client_handler(self, conn, addr):  # This handles all of the clients
         question_counter = 0
         score = 0
         self.game_controller()
 
-        while True:
-            data = conn.recv(1024).decode('utf-8')  # Waiting for the client to do something
-            if not data:
-                break
+        data = conn.recv(1024).decode('utf-8')  # Waiting for the client to finish
 
-            question_counter += 1
+        if data == "finished":
+            data = conn.recv(1024).decode('utf-8')
+            score = data
+        for x in self.clients:
+            if x[0] != conn:
+                print("ok")
+                x[0].send(str(score).encode('utf-8'))  # Send the other player the score
+
 
     def close_server(self):
         self.sock.close()
@@ -165,4 +169,9 @@ screen_width, screen_height = app.winfo_screenwidth(), app.winfo_screenheight()
 start_width, start_height = (screen_width / 2) - (app_width / 2), (screen_height / 2) - (app_height / 2)
 app.geometry("%dx%d+%d+%d" % (app_width, app_height, start_width, start_height))
 
+def on_closing():
+    app.destroy()
+    quit()
+
+app.protocol("WM_DELETE_WINDOW", on_closing)
 app.mainloop()
