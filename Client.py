@@ -73,6 +73,7 @@ class Game(tk.Frame):
         self.question = None
         self.answer1, self.answer2, self.answer3, self.answer4 = None, None, None, None
         self.counter = 0
+        self.score = 0
         tk.Frame.__init__(self, parent)
 
         if self.connect_client():
@@ -102,8 +103,10 @@ class Game(tk.Frame):
         self.questions = question_data
         Thread(target=self.game_display).start()
 
+        print(self.questions)
         while True:
-            pass
+            data = self.s.recv(1024).decode('utf-8')
+            print(data)
 
     def game_display(self):
 
@@ -128,13 +131,41 @@ class Game(tk.Frame):
         answer = self.questions[self.counter][2][0]
         self.counter += 1
         if answer == btn_nr:
+            self.score += 1
             #  Increase player score
-            self.question.destroy()
-            self.answer1.destroy()
-            self.answer2.destroy()
-            self.answer3.destroy()
-            self.answer4.destroy()
+
+        self.question.destroy()
+        self.answer1.destroy()
+        self.answer2.destroy()
+        self.answer3.destroy()
+        self.answer4.destroy()
+
+        if self.counter < 10:
             self.game_display()
+        else:
+            self.game_finish()
+
+    def get_rival_score(self):
+        data = None
+        data_recv = False
+        rival_score = None
+        while not data_recv:
+            data = self.s.recv(1024).decode('utf-8')
+            rival_score = data
+            data_recv = True
+        rival_text = "Your opponent score: " + rival_score
+        display_rival_score = tk.Label(self, text=rival_text, font=LARGE_FONT)
+        display_rival_score.pack()
+
+
+    def game_finish(self):
+        self.s.send("finished".encode('utf-8'))
+        self.s.send(str(self.score).encode('utf-8'))
+
+        score_text = "Your score: " + str(self.score)
+        display_score = tk.Label(self, text=score_text, font=LARGE_FONT)
+        display_score.pack()
+        Thread(target=self.get_rival_score).start()
 
 
     def connect_client(self):
@@ -155,4 +186,9 @@ screen_width, screen_height = app.winfo_screenwidth(), app.winfo_screenheight()
 start_width, start_height = (screen_width / 2) - (app_width / 2), (screen_height / 2) - (app_height / 2)
 app.geometry("%dx%d+%d+%d" % (app_width, app_height, start_width, start_height))
 
+def on_closing():
+    app.destroy()
+    quit()
+
+app.protocol("WM_DELETE_WINDOW", on_closing)
 app.mainloop()
